@@ -4,7 +4,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import db.DB;
 import db.DbException;
@@ -93,5 +96,44 @@ public class SellerDaoJDBC implements SellerDao{
 		return null;
 	}
 
-	
+	@Override
+	public List<Seller> findByDepartment(Department department) {
+		PreparedStatement st = null;
+		ResultSet rs = null; //aponta pra posição 0, mas ela n existe (no BdD, caso o elemento procurado não exista esse problema deve ser tratado)
+		
+		try {
+			st = conn.prepareStatement(
+					"SELECT seller.*,department.Name as DepName " + 
+					"FROM seller INNER JOIN department " +
+					"ON seller.DepartmentId = department.Id " +
+					"WHERE DepartmentId = ? " +
+					"ORDER BY Name");
+			
+			st.setInt(1, department.getId());
+			rs = st.executeQuery(); //retorna em forma de tabela - mas na POO vc tem que mudar isso 
+			List<Seller> list = new ArrayList<>();
+			Map<Integer, Department> map = new HashMap<>(); //proibe repetição
+			
+			while(rs.next()) { //testando enquanto houver algum resultado
+				Department dep = map.get(rs.getInt("DepartmentId")); //vai checar se o map contém o id referenciado. Se true ele não vai adicionar o novo department ao o dep (quase que como um aux)
+				//Se null então o novo department vai ser adicionado à map
+				
+				if(dep == null) {
+					dep = instantiateDepartment(rs);
+					map.put(rs.getInt("DepartmentId"), dep);
+				}
+				
+				Seller obj = insantiateSeller(rs, dep); 				
+				list.add(obj);
+			}
+			return list;
+		}
+		catch(SQLException e) {
+			throw new DbException(e.getMessage());
+		}
+		finally {
+			DB.closeStatement(st);
+			DB.closeResultSet(rs);
+		}
+	}	
 }
